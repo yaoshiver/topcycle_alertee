@@ -9,6 +9,10 @@ def load_data(symbol, period="5y", interval="1wk"):
     return data
 
 def compute_indicators(df):
+    # Vérifier si la colonne "Close" existe
+    if "Close" not in df.columns:
+        raise KeyError("La colonne 'Close' n'existe pas dans le DataFrame")
+
     # Calcul des moyennes mobiles
     df["MA200"] = df["Close"].rolling(window=200).mean()
     df["MA111"] = df["Close"].rolling(window=111).mean()
@@ -29,6 +33,7 @@ def compute_indicators(df):
     df["RSI"] = df_clean["RSI"]
 
     return df
+
 
 
 
