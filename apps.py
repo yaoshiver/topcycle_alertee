@@ -9,9 +9,12 @@ def load_data(symbol, period="5y", interval="1wk"):
     return data
 
 def compute_indicators(df):
-    # Vérifier si la colonne "Close" existe
+    # Vérifier si la colonne "Close" existe avant de l'utiliser
     if "Close" not in df.columns:
         raise KeyError("La colonne 'Close' n'existe pas dans le DataFrame")
+
+    # Afficher les colonnes pour débogage
+    print("Colonnes disponibles dans df : ", df.columns)
 
     # Calcul des moyennes mobiles
     df["MA200"] = df["Close"].rolling(window=200).mean()
@@ -22,8 +25,11 @@ def compute_indicators(df):
     df["Distance_MA200"] = None
     df.loc[df["MA200"].notna(), "Distance_MA200"] = ((df["Close"] - df["MA200"]) / df["MA200"]) * 100
 
-    # Supprimer les lignes avec des valeurs NaN avant de calculer le RSI
-    df_clean = df.dropna(subset=["Close"])
+    # Vérification que la colonne "Close" existe avant de procéder à dropna
+    if "Close" in df.columns:
+        df_clean = df.dropna(subset=["Close"])
+    else:
+        raise KeyError("La colonne 'Close' n'est pas présente après traitement")
 
     # Calcul de l'indicateur RSI
     rsi_indicator = ta.momentum.RSIIndicator(df_clean["Close"], window=14)
@@ -33,6 +39,7 @@ def compute_indicators(df):
     df["RSI"] = df_clean["RSI"]
 
     return df
+
 
 
 
