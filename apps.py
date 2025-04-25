@@ -84,7 +84,13 @@ st.subheader("🧠 Signaux actifs :")
 st.json(signals)
 
 st.subheader("📈 Graphique BTC + indicateurs")
-st.line_chart(df[["Close", "MA200", "MA111", "MA350_2"]].dropna())
+columns_to_plot = [col for col in ["Close", "MA200", "MA111", "MA350_2"] if col in df.columns]
+df_chart = df[columns_to_plot].dropna()
+if not df_chart.empty:
+    st.line_chart(df_chart)
+else:
+    st.info("Pas assez de données pour afficher le graphique MA.")
+
 
 
 
