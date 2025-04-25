@@ -9,18 +9,20 @@ def load_data(symbol, period="5y", interval="1wk"):
     return data
 
 def compute_indicators(df):
+    # Calcul des moyennes mobiles
     df["MA200"] = df["Close"].rolling(window=200).mean()
     df["MA111"] = df["Close"].rolling(window=111).mean()
     df["MA350_2"] = df["Close"].rolling(window=350).mean() * 2
 
-    # Calcul uniquement si MA200 n’est pas NaN
-    df["Distance_MA200"] = ((df["Close"] - df["MA200"]) / df["MA200"]) * 100
-    df.loc[df["MA200"].isna(), "Distance_MA200"] = None
+    # On s'assure qu'il n'y a pas de NaN dans MA200 avant de calculer Distance_MA200
+    df["Distance_MA200"] = None
+    df.loc[df["MA200"].notna(), "Distance_MA200"] = ((df["Close"] - df["MA200"]) / df["MA200"]) * 100
 
-    # RSI
+    # Calcul de l'indicateur RSI
     df["RSI"] = ta.momentum.RSIIndicator(df["Close"], window=14).rsi()
 
     return df
+
 
 
 def detect_signals(df):
