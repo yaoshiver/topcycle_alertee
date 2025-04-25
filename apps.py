@@ -15,12 +15,20 @@ def load_data(ticker="AAPL", start_date="2020-01-01", end_date="2025-01-01"):
 
 # Calcul des indicateurs
 def compute_indicators(df):
+    # Vérification des NaN dans les données
+    df = df.dropna(subset=["Close"])
+
     # Calcul des moyennes mobiles
     df['MA200'] = df['Close'].rolling(window=200).mean()
     df['MA50'] = df['Close'].rolling(window=50).mean()
 
     # Calcul du RSI (Relative Strength Index)
-    df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
+    # Vérifiez que la colonne 'Close' n'a pas de valeurs manquantes
+    if df['Close'].isna().sum() == 0:
+        df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
+    else:
+        st.error("Il y a des valeurs manquantes dans la colonne 'Close'.")
+        return df
 
     # Distance entre le prix de clôture et la MA200 en pourcentage
     df['Distance_MA200'] = ((df['Close'] - df['MA200']) / df['MA200']) * 100
