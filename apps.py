@@ -1,9 +1,26 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import talib
 
-# Charger les données BTC en Weekly
+# Fonction RSI manuelle
+def compute_rsi(series, period=14):
+    delta = series.diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+    avg_gain = gain.rolling(window=period).mean()
+    avg_loss = loss.rolling(window=period).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+# MACD manuel
+def compute_macd(close, short=12, long=26, signal=9):
+    ema_short = close.ewm(span=short, adjust=False).mean()
+    ema_long = close.ewm(span=long, adjust=False).mean()
+    macd = ema_short - ema_long
+    signal_line = macd.ewm(span=signal, adjust=False).mean()
+    return macd, signal_line
+
+# Charger données
 @st.cache_data
 def load_data():
     data = yf.download("BTC-USD", start="2016-01-01", interval="1wk")
@@ -12,16 +29,16 @@ def load_data():
 
 # Calcul des indicateurs
 def compute_indicators(df):
-    df['RSI'] = talib.RSI(df['Close'], timeperiod=14)
-    df['MACD'], df['MACD_signal'], _ = talib.MACD(df['Close'], fastperiod=12, slowperiod=26, signalperiod=9)
-    df['MA200'] = df['Close'].rolling(window=200).mean()
-    df['Distance_MA200'] = (df['Close'] - df['MA200']) / df['MA200'] * 100
-    df['MA111'] = df['Close'].rolling(window=111).mean()
-    df['MA350_2'] = df['Close'].rolling(window=350).mean() / 2
-    df['Pi_Cycle'] = abs(df['MA111'] - df['MA350_2']) < 1000
+    df["RSI"] = compute_rsi(df["Close"])
+    df["MACD"], df["MACD_signal"] = compute_macd(df["Close"])
+    df["MA200"] = df["Close"].rolling(window=200).mean()
+    df["Distance_MA200"] = (df["Close"] - df["MA200"]) / df["MA200"] * 100
+    df["MA111"] = df["Close"].rolling(window=111).mean()
+    df["MA350_2"] = df["Close"].rolling(window=350).mean() / 2
+    df["Pi_Cycle"] = abs(df["MA111"] - df["MA350_2"]) < 1000
     return df
 
-# Analyse des signaux de sommet
+# Détection des signaux
 def detect_signals(df):
     last = df.iloc[-1]
     signals = {
@@ -33,7 +50,7 @@ def detect_signals(df):
     score = sum(signals.values())
     return signals, score
 
-# UI Streamlit
+# Interface
 st.set_page_config(page_title="TopCycle Alert", layout="wide")
 st.title("TopCycle Alert - Détection de sommet de cycle BTC")
 
@@ -49,8 +66,9 @@ elif score == 2:
 else:
     st.success("Aucun signe de sommet majeur.")
 
-st.subheader("Signaux techniques actifs :")
+st.subheader("Signaux actifs :")
 st.write(signals)
 
-st.subheader("Graphique des indicateurs :")
+st.subheader("Graphique des indicateurs")
 st.line_chart(df[['Close', 'MA200', 'MA111', 'MA350_2']].dropna())
+
