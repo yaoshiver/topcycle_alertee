@@ -14,12 +14,19 @@ def compute_indicators(df):
     df["MA111"] = df["Close"].rolling(window=111).mean()
     df["MA350_2"] = df["Close"].rolling(window=350).mean() * 2
 
-    # On s'assure qu'il n'y a pas de NaN dans MA200 avant de calculer Distance_MA200
+    # Calcul de la Distance_MA200 uniquement si MA200 est non-NaN
     df["Distance_MA200"] = None
     df.loc[df["MA200"].notna(), "Distance_MA200"] = ((df["Close"] - df["MA200"]) / df["MA200"]) * 100
 
+    # Supprimer les lignes avec des valeurs NaN avant de calculer le RSI
+    df_clean = df.dropna(subset=["Close"])
+
     # Calcul de l'indicateur RSI
-    df["RSI"] = ta.momentum.RSIIndicator(df["Close"], window=14).rsi()
+    rsi_indicator = ta.momentum.RSIIndicator(df_clean["Close"], window=14)
+    df_clean["RSI"] = rsi_indicator.rsi()
+
+    # Remplacer les NaN de RSI dans le DataFrame original
+    df["RSI"] = df_clean["RSI"]
 
     return df
 
