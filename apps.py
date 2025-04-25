@@ -85,7 +85,7 @@ st.json(signals)
 
 st.subheader("📈 Graphique BTC + indicateurs")
 columns_to_plot = [col for col in ["Close", "MA200", "MA111", "MA350_2"] if col in df.columns]
-df_chart = df[columns_to_plot].dropna()
+df_chart = df[columns_to_plot].dropna().reset_index()
 if not df_chart.empty:
     st.line_chart(df_chart)
 else:
