@@ -15,8 +15,15 @@ def load_data(ticker="AAPL", start_date="2020-01-01", end_date="2025-01-01"):
 
 # Calcul des indicateurs
 def compute_indicators(df):
+    # Afficher les colonnes du DataFrame pour vérifier le nom de la colonne 'Close'
+    st.write("Colonnes du DataFrame : ", df.columns)
+
     # Vérification des NaN dans les données
-    df = df.dropna(subset=["Close"])
+    if 'Close' in df.columns:
+        df = df.dropna(subset=["Close"])
+    else:
+        st.error("La colonne 'Close' n'existe pas dans les données.")
+        return df
 
     # Calcul des moyennes mobiles
     df['MA200'] = df['Close'].rolling(window=200).mean()
@@ -86,6 +93,7 @@ else:
     # Graphique de la distance du prix à la MA200
     st.subheader(f"Graphique de la distance entre le prix et la MA200 pour {ticker}")
     st.line_chart(df[['Distance_MA200']].dropna())
+
 
 
 
