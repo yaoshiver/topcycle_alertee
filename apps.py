@@ -18,24 +18,20 @@ def compute_indicators(df):
     # Afficher les colonnes du DataFrame pour vérifier le nom de la colonne 'Close'
     st.write("Colonnes du DataFrame : ", df.columns)
 
+    # Vérification de l'existence de la colonne 'Close'
+    if 'Close' not in df.columns:
+        st.error("La colonne 'Close' n'existe pas dans les données. Vérifiez le téléchargement des données.")
+        return df  # Retourner le DataFrame sans traitement
+
     # Vérification des NaN dans les données
-    if 'Close' in df.columns:
-        df = df.dropna(subset=["Close"])
-    else:
-        st.error("La colonne 'Close' n'existe pas dans les données.")
-        return df
+    df = df.dropna(subset=["Close"])
 
     # Calcul des moyennes mobiles
     df['MA200'] = df['Close'].rolling(window=200).mean()
     df['MA50'] = df['Close'].rolling(window=50).mean()
 
     # Calcul du RSI (Relative Strength Index)
-    # Vérifiez que la colonne 'Close' n'a pas de valeurs manquantes
-    if df['Close'].isna().sum() == 0:
-        df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
-    else:
-        st.error("Il y a des valeurs manquantes dans la colonne 'Close'.")
-        return df
+    df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
 
     # Distance entre le prix de clôture et la MA200 en pourcentage
     df['Distance_MA200'] = ((df['Close'] - df['MA200']) / df['MA200']) * 100
@@ -93,6 +89,7 @@ else:
     # Graphique de la distance du prix à la MA200
     st.subheader(f"Graphique de la distance entre le prix et la MA200 pour {ticker}")
     st.line_chart(df[['Distance_MA200']].dropna())
+
 
 
 
