@@ -13,10 +13,15 @@ def compute_indicators(df):
     df["MA111"] = df["Close"].rolling(window=111).mean()
     df["MA350_2"] = df["Close"].rolling(window=350).mean() * 2
 
+    # Calcul uniquement si MA200 n’est pas NaN
     df["Distance_MA200"] = ((df["Close"] - df["MA200"]) / df["MA200"]) * 100
+    df.loc[df["MA200"].isna(), "Distance_MA200"] = None
+
+    # RSI
     df["RSI"] = ta.momentum.RSIIndicator(df["Close"], window=14).rsi()
 
     return df
+
 
 def detect_signals(df):
     last = df.iloc[-1]
