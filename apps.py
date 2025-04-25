@@ -1,24 +1,24 @@
 import streamlit as st
+import investpy
 import pandas as pd
-import ta  # Bibliothèque pour les indicateurs techniques
+import ta  # Pour les indicateurs techniques
 
 # Titre de l'application
-st.title("Analyse Technique et Indicateurs Financiers")
+st.title("Analyse Technique avec des Données d'Investing.com")
 
-# Charger un fichier CSV contenant les données boursières
-def load_data_from_csv(file):
+# Fonction pour récupérer les données depuis Investing.com
+def load_data_from_investing(symbol, country, start_date, end_date):
     try:
-        df = pd.read_csv(file)
-        df['Date'] = pd.to_datetime(df['Date'])  # Convertir la colonne 'Date' en datetime si nécessaire
-        df.set_index('Date', inplace=True)
+        # Récupérer les données historiques pour l'action
+        df = investpy.get_stock_historical_data(stock=symbol, country=country, from_date=start_date, to_date=end_date)
+        df.reset_index(inplace=True)  # Convertir les dates en index
         return df
     except Exception as e:
-        st.error(f"Erreur de chargement du fichier : {e}")
+        st.error(f"Erreur de récupération des données : {e}")
         return pd.DataFrame()
 
 # Calcul des indicateurs
 def compute_indicators(df):
-    # Vérification de la présence de la colonne 'Close'
     if 'Close' not in df.columns:
         st.error("La colonne 'Close' est manquante dans le DataFrame.")
         return df  # Retourner le DataFrame sans traitement
@@ -38,22 +38,27 @@ def compute_indicators(df):
 
     return df
 
-# Affichage des données et des graphiques
+# Interface utilisateur pour récupérer les données
 st.sidebar.header("Paramètres de l'application")
-uploaded_file = st.sidebar.file_uploader("Télécharger un fichier CSV", type=["csv"])
 
-# Si un fichier est téléchargé
-if uploaded_file is not None:
-    df = load_data_from_csv(uploaded_file)
+symbol = st.sidebar.text_input("Symbole de l'action (ex: 'AAPL' pour Apple)", value="AAPL")
+country = st.sidebar.text_input("Pays de l'action (ex: 'United States' pour USA)", value="United States")
+start_date = st.sidebar.date_input("Date de début", value=pd.to_datetime("2021-01-01"))
+end_date = st.sidebar.date_input("Date de fin", value=pd.to_datetime("2023-01-01"))
+
+# Si l'utilisateur clique sur "Charger les données"
+if st.sidebar.button("Charger les données"):
+    df = load_data_from_investing(symbol, country, start_date.strftime('%d/%m/%Y'), end_date.strftime('%d/%m/%Y'))
 
     # Vérifier si les données sont chargées
     if df.empty:
-        st.error("Le fichier est vide ou ne contient pas de données valides.")
+        st.error("Aucune donnée trouvée pour cet actif.")
     else:
-        # Calcul des indicateurs
+        # Calcul des indicateurs techniques
         df = compute_indicators(df)
 
-        # Affichage des 5 premières lignes des données pour vérification
+        # Affichage des données et graphiques
+        st.write(f"Voici les données de {symbol} :")
         st.write(df.head())
 
         # Affichage des graphiques
@@ -61,7 +66,7 @@ if uploaded_file is not None:
         df_chart = df[['Close', 'MA200', 'MA50']]
         st.line_chart(df_chart)
 
-        # Graphique de RSI
+        # Graphique du RSI
         st.subheader("Graphique du RSI")
         st.line_chart(df[['RSI']])
 
@@ -69,8 +74,7 @@ if uploaded_file is not None:
         st.subheader("Graphique de la distance entre le prix et la MA200")
         st.line_chart(df[['Distance_MA200']])
 
-else:
-    st.info("Veuillez télécharger un fichier CSV contenant les données boursières.")
+
 
 
 
