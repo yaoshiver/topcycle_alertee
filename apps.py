@@ -47,12 +47,20 @@ def compute_indicators(df):
 # Détection des signaux
 def detect_signals(df):
     last = df.iloc[-1]
+
+    def safe_bool(val):
+        try:
+            return bool(float(val))
+        except:
+            return False
+
     signals = {
-        "RSI > 85": bool(last['RSI'] > 85) if pd.notna(last['RSI']) else False,
-        "MACD croisement baissier": last['MACD'] < last['MACD_signal'] if pd.notna(last['MACD']) and pd.notna(last['MACD_signal']) else False,
-        "Écart > 100% avec MA200": last['Distance_MA200'] > 100 if pd.notna(last['Distance_MA200']) else False,
-        "Pi Cycle Top": last['Pi_Cycle'] if pd.notna(last['Pi_Cycle']) else False
+        "RSI > 85": safe_bool(float(last["RSI"]) > 85),
+        "MACD croisement baissier": safe_bool(float(last["MACD"]) < float(last["MACD_signal"])),
+        "Écart > 100% avec MA200": safe_bool(float(last["Distance_MA200"]) > 100),
+        "Pi Cycle Top": safe_bool(last["Pi_Cycle"])
     }
+
     score = sum(signals.values())
     return signals, score
 
@@ -76,6 +84,7 @@ st.subheader("🧠 Signaux actifs :")
 st.json(signals)
 
 st.subheader("📈 Graphique BTC + indicateurs")
-st.line_chart(df[['Close', 'MA200', 'MA111', 'MA350_2']].dropna())
+st.line_chart(df[["Close", "MA200", "MA111", "MA350_2"]].dropna())
+
 
 
