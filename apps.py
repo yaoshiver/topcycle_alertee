@@ -1,95 +1,71 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
+import yfinance as yf
+import ta
 
-# RSI manuel
-def compute_rsi(series, period=14):
-    delta = series.diff()
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-    avg_gain = gain.rolling(window=period).mean()
-    avg_loss = loss.rolling(window=period).mean()
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-# MACD manuel
-def compute_macd(close, short=12, long=26, signal=9):
-    ema_short = close.ewm(span=short, adjust=False).mean()
-    ema_long = close.ewm(span=long, adjust=False).mean()
-    macd = ema_short - ema_long
-    signal_line = macd.ewm(span=signal, adjust=False).mean()
-    return macd, signal_line
-
-# Charger données BTC
-@st.cache_data
-def load_data():
-    data = yf.download("BTC-USD", start="2016-01-01", interval="1wk")
+def load_data(symbol, period="5y", interval="1wk"):
+    data = yf.download(symbol, period=period, interval=interval)
     data.dropna(inplace=True)
     return data
 
-# Calcul des indicateurs
 def compute_indicators(df):
-    df["RSI"] = compute_rsi(df["Close"])
-    df["MACD"], df["MACD_signal"] = compute_macd(df["Close"])
     df["MA200"] = df["Close"].rolling(window=200).mean()
     df["MA111"] = df["Close"].rolling(window=111).mean()
-    df["MA350_2"] = df["Close"].rolling(window=350).mean() / 2
-    df["Pi_Cycle"] = abs(df["MA111"] - df["MA350_2"]) < 1000
+    df["MA350_2"] = df["Close"].rolling(window=350).mean() * 2
 
-    # Distance à la MA200 avec gestion des NaN
-    df["Distance_MA200"] = None
-    valid = df["MA200"].notnull()
-    df.loc[valid, "Distance_MA200"] = ((df["Close"] - df["MA200"]) / df["MA200"]) * 100
+    df["Distance_MA200"] = ((df["Close"] - df["MA200"]) / df["MA200"]) * 100
+    df["RSI"] = ta.momentum.RSIIndicator(df["Close"], window=14).rsi()
 
     return df
 
-# Détection des signaux
 def detect_signals(df):
     last = df.iloc[-1]
 
-    def safe_bool(val):
-        try:
-            return bool(float(val))
-        except:
-            return False
-
     signals = {
-        "RSI > 85": safe_bool(float(last["RSI"]) > 85),
-        "MACD croisement baissier": safe_bool(float(last["MACD"]) < float(last["MACD_signal"])),
-        "Écart > 100% avec MA200": safe_bool(float(last["Distance_MA200"]) > 100),
-        "Pi Cycle Top": safe_bool(last["Pi_Cycle"])
+        "Close > MA200": last.get("Close", 0) > last.get("MA200", float("inf")),
+        "Distance MA200 > 50%": last.get("Distance_MA200", 0) > 50,
+        "RSI > 85": bool(last["RSI"] > 85) if pd.notna(last.get("RSI")) else False,
+        "Close > MA111": last.get("Close", 0) > last.get("MA111", float("inf")),
+        "Close > MA350 x2": last.get("Close", 0) > last.get("MA350_2", float("inf"))
     }
 
-    score = sum(signals.values())
+    score = sum(signals.values()) / len(signals) * 100  # % de conditions remplies
     return signals, score
 
-# Interface Streamlit
-st.set_page_config(page_title="TopCycle Alert", layout="wide")
-st.title("🔔 TopCycle Alert – Détection de sommet de cycle BTC")
+st.set_page_config(page_title="Top Cycle Alerte", layout="centered")
+st.title("📈 Top Cycle Alerte – Vente au Sommet ?")
 
-df = load_data()
-df = compute_indicators(df)
-signals, score = detect_signals(df)
+symbol = st.text_input("Ticker (ex: BTC-USD, ETH-USD, SPY...)", value="BTC-USD")
 
-st.subheader("📊 Statut du marché :")
-if score >= 3:
-    st.error("🚨 ALERTE : Probable sommet de cycle détecté !")
-elif score == 2:
-    st.warning("⚠️ PRUDENCE : 2 signaux détectés.")
-else:
-    st.success("✅ Aucun signe de sommet majeur.")
+if symbol:
+    df = load_data(symbol)
+    df = compute_indicators(df)
 
-st.subheader("🧠 Signaux actifs :")
-st.json(signals)
+    signals, score = detect_signals(df)
 
-st.subheader("📈 Graphique BTC + indicateurs")
-columns_to_plot = [col for col in ["Close", "MA200", "MA111", "MA350_2"] if col in df.columns]
-df_chart = df[columns_to_plot].dropna().reset_index()
-if not df_chart.empty:
-    st.line_chart(df_chart)
-else:
-    st.info("Pas assez de données pour afficher le graphique MA.")
+    st.subheader("🔍 Analyse des Signaux")
+    for name, value in signals.items():
+        st.write(f"- {name} : {'✅' if value else '❌'}")
+
+    st.markdown(f"### 🧠 Score global : `{score:.2f}%`")
+
+    if score >= 80:
+        st.success("🚨 Le sommet semble proche, envisagez de prendre des profits !")
+    elif score >= 50:
+        st.warning("⚠️ Prudence, plusieurs signaux sont en zone de sommet.")
+    else:
+        st.info("✅ Aucun signal majeur de sommet détecté.")
+
+    st.subheader("📊 Graphique des Moyennes Mobiles")
+    columns_to_plot = ["Close", "MA200", "MA111", "MA350_2"]
+    available_columns = [col for col in columns_to_plot if col in df.columns]
+    df_chart = df[available_columns].dropna().reset_index()
+
+    if not df_chart.empty and len(available_columns) > 1:
+        st.line_chart(df_chart)
+    else:
+        st.info("Pas assez de données pour afficher le graphique.")
+
 
 
 
