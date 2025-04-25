@@ -1,29 +1,29 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import ta  # Bibliothèque pour les indicateurs techniques
-import yfinance as yf
 
 # Titre de l'application
 st.title("Analyse Technique et Indicateurs Financiers")
 
-# Téléchargement des données
-def load_data(ticker="AAPL", start_date="2020-01-01", end_date="2025-01-01"):
-    data = yf.download(ticker, start=start_date, end=end_date)
-    data['Date'] = data.index
-    return data
+# Charger un fichier CSV contenant les données boursières
+def load_data_from_csv(file):
+    try:
+        df = pd.read_csv(file)
+        df['Date'] = pd.to_datetime(df['Date'])  # Convertir la colonne 'Date' en datetime si nécessaire
+        df.set_index('Date', inplace=True)
+        return df
+    except Exception as e:
+        st.error(f"Erreur de chargement du fichier : {e}")
+        return pd.DataFrame()
 
 # Calcul des indicateurs
 def compute_indicators(df):
-    # Afficher les colonnes du DataFrame pour vérifier le nom de la colonne 'Close'
-    st.write("Colonnes du DataFrame : ", df.columns)
-
-    # Vérification de l'existence de la colonne 'Close'
+    # Vérification de la présence de la colonne 'Close'
     if 'Close' not in df.columns:
-        st.error("La colonne 'Close' n'existe pas dans les données. Vérifiez le téléchargement des données.")
+        st.error("La colonne 'Close' est manquante dans le DataFrame.")
         return df  # Retourner le DataFrame sans traitement
 
-    # Vérification des NaN dans les données
+    # Supprimer les valeurs NaN dans la colonne 'Close'
     df = df.dropna(subset=["Close"])
 
     # Calcul des moyennes mobiles
@@ -38,57 +38,39 @@ def compute_indicators(df):
 
     return df
 
-# Calcul des signaux d'achat/vente
-def detect_signals(df):
-    last = df.iloc[-1]
-    signals = {
-        "RSI > 70": last['RSI'] > 70 if pd.notna(last['RSI']) else False,
-        "RSI < 30": last['RSI'] < 30 if pd.notna(last['RSI']) else False,
-        "Prix au-dessus de MA50": last['Close'] > last['MA50'] if pd.notna(last['MA50']) else False,
-        "Prix au-dessus de MA200": last['Close'] > last['MA200'] if pd.notna(last['MA200']) else False,
-    }
-    score = sum(signals.values())
-    return signals, score
-
 # Affichage des données et des graphiques
 st.sidebar.header("Paramètres de l'application")
-ticker = st.sidebar.text_input("Symbole boursier (par défaut: AAPL)", "AAPL")
-start_date = st.sidebar.date_input("Date de début", pd.to_datetime("2020-01-01"))
-end_date = st.sidebar.date_input("Date de fin", pd.to_datetime("2025-01-01"))
+uploaded_file = st.sidebar.file_uploader("Télécharger un fichier CSV", type=["csv"])
 
-# Charger les données et calculer les indicateurs
-df = load_data(ticker, start_date=start_date, end_date=end_date)
+# Si un fichier est téléchargé
+if uploaded_file is not None:
+    df = load_data_from_csv(uploaded_file)
 
-# Vérifier si les données sont chargées
-if df.empty:
-    st.error("Les données sont vides. Veuillez vérifier le symbole boursier et les dates.")
+    # Vérifier si les données sont chargées
+    if df.empty:
+        st.error("Le fichier est vide ou ne contient pas de données valides.")
+    else:
+        # Calcul des indicateurs
+        df = compute_indicators(df)
+
+        # Affichage des 5 premières lignes des données pour vérification
+        st.write(df.head())
+
+        # Affichage des graphiques
+        st.subheader("Graphique des prix et moyennes mobiles")
+        df_chart = df[['Close', 'MA200', 'MA50']]
+        st.line_chart(df_chart)
+
+        # Graphique de RSI
+        st.subheader("Graphique du RSI")
+        st.line_chart(df[['RSI']])
+
+        # Graphique de la distance du prix à la MA200
+        st.subheader("Graphique de la distance entre le prix et la MA200")
+        st.line_chart(df[['Distance_MA200']])
+
 else:
-    # Calcul des indicateurs
-    df = compute_indicators(df)
-    
-    # Afficher les 5 premières lignes des données pour vérification
-    st.write(df.head())
-
-    # Affichage des signaux
-    signals, score = detect_signals(df)
-    st.write("Signaux d'achat/vente actuels :", signals)
-    st.write(f"Score global des signaux : {score}")
-
-    # Affichage des graphiques
-    st.subheader(f"Graphique des prix et moyennes mobiles pour {ticker}")
-    
-    # Graphique de prix de clôture et des moyennes mobiles
-    df_chart = df[['Close', 'MA200', 'MA50']]
-    df_chart = df_chart.dropna()  # Enlever les valeurs manquantes avant de tracer
-    st.line_chart(df_chart)
-
-    # Graphique de RSI
-    st.subheader(f"Graphique du RSI pour {ticker}")
-    st.line_chart(df[['RSI']].dropna())
-
-    # Graphique de la distance du prix à la MA200
-    st.subheader(f"Graphique de la distance entre le prix et la MA200 pour {ticker}")
-    st.line_chart(df[['Distance_MA200']].dropna())
+    st.info("Veuillez télécharger un fichier CSV contenant les données boursières.")
 
 
 
